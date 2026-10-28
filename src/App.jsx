@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { jobs, areas } from "./lib/jobs";
 import {
+  TASKS,
   createStudy,
   currentTask,
   startTask,
@@ -107,8 +108,13 @@ export default function App() {
     setConfirming(false);
   }
   const visible = filterJobs(jobs, appliedFilters);
-  const canApply =
-    !study || (taskIndex === 2 && study.tasks[2].status === "active");
+  const canApply = !study || taskIndex === 2;
+  const startsApplicationTask =
+    taskIndex === 2 && study.tasks[2].status === "pending";
+  function beginApplication() {
+    if (startsApplicationTask) setStudy((s) => startTask(s));
+    setConfirming(true);
+  }
   return (
     <>
       {!configured && (
@@ -480,20 +486,33 @@ export default function App() {
                   </ul>
                 </section>
               ))}
-              <button
-                className="button full"
-                disabled={!canApply}
-                onClick={() => setConfirming(true)}
-              >
-                Simular candidatura
-                <ArrowRight size={18} />
-              </button>
-              {!canApply && (
-                <p className="fine-print center">
-                  Feche os detalhes e inicie a tarefa 3 para simular a
-                  candidatura.
-                </p>
+              {startsApplicationTask && (
+                <div className="notice">
+                  <strong>Próxima etapa: tarefa 3</strong>
+                  <p>{TASKS[2].instruction}</p>
+                  <span>O tempo começa ao clicar no botão abaixo.</span>
+                </div>
               )}
+              {canApply ? (
+                <button className="button full" onClick={beginApplication}>
+                  {startsApplicationTask
+                    ? "Iniciar tarefa 3 e simular candidatura"
+                    : "Simular candidatura"}
+                  <ArrowRight size={18} />
+                </button>
+              ) : (
+                <button
+                  className="button full"
+                  onClick={() => setSelected(null)}
+                >
+                  Voltar à tarefa {taskIndex + 1}
+                  <ArrowLeft size={18} />
+                </button>
+              )}
+              <button className="text-button" onClick={() => setSelected(null)}>
+                <ArrowLeft size={16} />
+                Voltar às vagas
+              </button>
             </>
           )}
         </Modal>

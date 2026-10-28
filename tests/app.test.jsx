@@ -100,3 +100,45 @@ it("impede que conta sem permissão veja resultados", async () => {
   expect(backend.results).not.toHaveBeenCalled();
   window.location.hash = "";
 });
+it("permite iniciar a candidatura pelos detalhes sem fechar a vaga", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await begin(user);
+  await user.click(screen.getByRole("button", { name: "Iniciar tarefa 1" }));
+  await user.selectOptions(
+    screen.getByLabelText("Área do estágio"),
+    "Tecnologia",
+  );
+  await user.selectOptions(screen.getByLabelText("Turno"), "Manhã");
+  await user.click(screen.getByRole("button", { name: "Buscar vagas" }));
+  await user.click(screen.getByRole("button", { name: "Iniciar tarefa 2" }));
+  await user.click(
+    screen.getByRole("button", {
+      name: "Ver vaga: Estágio em Desenvolvimento Web",
+    }),
+  );
+  await user.click(
+    screen.getByRole("button", {
+      name: "Iniciar tarefa 3 e simular candidatura",
+    }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Confirmar candidatura simulada" }),
+  );
+  expect(screen.getByText("Foi fácil usar o protótipo?")).toBeInTheDocument();
+  await waitFor(() =>
+    expect(backend.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            id: "apply",
+            status: "completed",
+            started_at: expect.any(String),
+            duration_ms: expect.any(Number),
+          }),
+        ]),
+      }),
+      expect.any(Number),
+    ),
+  );
+});
