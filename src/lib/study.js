@@ -4,21 +4,21 @@ export const TASKS = [
     id: "filter",
     title: "Encontre seu caminho",
     instruction:
-      "Imagine que você estuda à noite e busca um estágio na área de Tecnologia, no turno da Manhã. Use os filtros para encontrar essas oportunidades.",
-    hint: "Escolha Tecnologia em Área do estágio e Manhã em Turno. Depois, selecione Buscar vagas.",
+      "Encontre um estágio que combine com você. Use a busca e os filtros se precisar, ou explore as vagas diretamente.",
+    hint: "Você pode buscar por palavra-chave ou escolher uma área e um turno. Depois, selecione Buscar vagas.",
   },
   {
     id: "view",
     title: "Conheça a oportunidade",
     instruction:
-      "Encontre a vaga “Estágio em Desenvolvimento Web”, da Nexo Digital, e abra seus detalhes para conhecer as atividades e os requisitos.",
-    hint: "Na lista de vagas, procure Estágio em Desenvolvimento Web e selecione Ver oportunidade.",
+      "Abra uma vaga do seu interesse para conhecer as atividades, os requisitos e os benefícios.",
+    hint: "Na lista de vagas, escolha uma oportunidade e selecione Ver oportunidade.",
   },
   {
     id: "apply",
     title: "Dê o primeiro passo",
     instruction:
-      "Simule sua candidatura à vaga “Estágio em Desenvolvimento Web”, da Nexo Digital. Nenhum currículo será enviado.",
+      "Simule sua candidatura à vaga que você escolheu. Nenhum currículo será enviado.",
     hint: "Abra os detalhes da vaga, selecione Simular candidatura e confirme a simulação.",
   },
 ];
@@ -31,25 +31,28 @@ export function createStudy(
 ) {
   if (!name?.trim() || !course?.trim() || consent !== true)
     throw new Error("Preencha seu nome, curso e aceite de participação.");
-  return {
-    id,
-    participant_name: name.trim().slice(0, 80),
-    course: course.trim().slice(0, 100),
-    consent: true,
-    consent_version: "2026-10-v1",
-    started_at: new Date(now).toISOString(),
-    completed_at: null,
-    status: "in_progress",
-    tasks: TASKS.map((t) => ({
-      id: t.id,
-      status: "pending",
-      started_at: null,
-      duration_ms: null,
-      help_count: 0,
-    })),
-    events: [],
-    feedback: null,
-  };
+  return startTask(
+    {
+      id,
+      participant_name: name.trim().slice(0, 80),
+      course: course.trim().slice(0, 100),
+      consent: true,
+      consent_version: "2026-10-v1",
+      started_at: new Date(now).toISOString(),
+      completed_at: null,
+      status: "in_progress",
+      tasks: TASKS.map((t) => ({
+        id: t.id,
+        status: "pending",
+        started_at: null,
+        duration_ms: null,
+        help_count: 0,
+      })),
+      events: [],
+      feedback: null,
+    },
+    now,
+  );
 }
 function event(s, type, payload, now, taskIndex = currentTask(s)) {
   return {
@@ -78,7 +81,7 @@ export function startTask(s, now = Date.now()) {
     i,
   );
 }
-export function finishTask(s, status, now = Date.now()) {
+export function finishTask(s, status, now = Date.now(), reason) {
   const i = currentTask(s);
   if (
     i < 0 ||
@@ -86,44 +89,72 @@ export function finishTask(s, status, now = Date.now()) {
     !["completed", "skipped"].includes(status)
   )
     return s;
-  return event(
-    {
-      ...s,
-      tasks: s.tasks.map((t, n) =>
-        n === i
-          ? {
-              ...t,
-              status,
-              duration_ms: Math.max(0, now - Date.parse(t.started_at)),
-            }
-          : t,
-      ),
-    },
-    status,
-    {},
+  return startTask(
+    event(
+      {
+        ...s,
+        tasks: s.tasks.map((t, n) =>
+          n === i
+            ? {
+                ...t,
+                status,
+                duration_ms: Math.max(0, now - Date.parse(t.started_at)),
+              }
+            : t,
+        ),
+      },
+      status,
+      reason ? { reason } : {},
+      now,
+      i,
+    ),
     now,
-    i,
   );
 }
 export function recordAction(s, type, payload = {}, now = Date.now()) {
-  const i = currentTask(s);
-  if (i < 0 || s.tasks[i].status !== "active") return s;
-  let next = event(s, type, payload, now, i);
+  if (s.status === "completed") return s;
+  let next = startTask(s, now);
+  let i = currentTask(next);
+  if (i < 0) return s;
+  const knownJob = jobs.some((job) => job.id === payload.jobId);
+  // Opening a vacancy directly is allowed; unused search is not counted as success.
+  if (type === "view" && knownJob && i === 0) {
+    const attemptedSearch = next.events.some(
+      (e) =>
+        e.type === "filter" &&
+        Boolean(e.payload.search?.trim() || e.payload.area || e.payload.shift),
+    );
+    next = finishTask(
+      next,
+      "skipped",
+      now,
+      attemptedSearch ? "not_completed" : "not_used",
+    );
+    i = currentTask(next);
+  }
+  next = event(next, type, payload, now, i);
   if (type === "help")
     next = {
       ...next,
-      tasks: next.tasks.map((t, n) =>
-        n === i ? { ...t, help_count: t.help_count + 1 } : t,
+      tasks: next.tasks.map((task, n) =>
+        n === i ? { ...task, help_count: task.help_count + 1 } : task,
       ),
     };
+  const usedSearch = Boolean(
+    payload.search?.trim() || payload.area || payload.shift,
+  );
   const correct =
     (i === 0 &&
       type === "filter" &&
-      payload.area === "Tecnologia" &&
-      payload.shift === "Manhã" &&
+      usedSearch &&
       filterJobs(jobs, payload).length > 0) ||
-    (i === 1 && type === "view" && payload.jobId === "web") ||
-    (i === 2 && type === "apply" && payload.jobId === "web");
+    (i === 1 && type === "view" && knownJob) ||
+    (i === 2 &&
+      type === "apply" &&
+      knownJob &&
+      next.events.some(
+        (e) => e.type === "view" && e.payload.jobId === payload.jobId,
+      ));
   return correct ? finishTask(next, "completed", now) : next;
 }
 export function finishStudy(s, feedback, now = Date.now()) {
@@ -159,6 +190,13 @@ export function filterJobs(jobs, { search = "", area = "", shift = "" }) {
       ),
   );
 }
+export const taskNotUsed = (row, index) =>
+  row.events.some(
+    (e) =>
+      e?.type === "skipped" &&
+      e.task === index &&
+      e.payload?.reason === "not_used",
+  );
 export function summarize(rows) {
   const rated = rows.filter(
     (r) =>
@@ -173,7 +211,9 @@ export function summarize(rows) {
       ? rated.reduce((n, r) => n + r.feedback.ease, 0) / rated.length
       : null,
     tasks: TASKS.map((t, i) => {
+      const notUsedCount = rows.filter((r) => taskNotUsed(r, i)).length;
       const attempts = rows
+        .filter((r) => !taskNotUsed(r, i))
         .map((r) => r.tasks[i])
         .filter((t) => t && t.status !== "pending");
       const completed = attempts.filter((t) => t.status === "completed");
@@ -181,6 +221,7 @@ export function summarize(rows) {
       return {
         ...t,
         attempts: attempts.length,
+        notUsedCount,
         completed: completed.length,
         successRate: attempts.length
           ? (completed.length / attempts.length) * 100

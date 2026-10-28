@@ -22,27 +22,24 @@ async function begin(user) {
   await user.click(
     screen.getByRole("button", { name: "Começar minha participação" }),
   );
-  await screen.findByRole("button", { name: "Iniciar tarefa 1" });
+  await screen.findByText("Encontre seu caminho");
 }
 it("percorre as três tarefas e confirma somente após salvar o feedback", async () => {
   const user = userEvent.setup();
   render(<App />);
   await begin(user);
-  await user.click(screen.getByRole("button", { name: "Iniciar tarefa 1" }));
   await user.selectOptions(
     screen.getByLabelText("Área do estágio"),
     "Tecnologia",
   );
   await user.selectOptions(screen.getByLabelText("Turno"), "Manhã");
   await user.click(screen.getByRole("button", { name: "Buscar vagas" }));
-  await user.click(screen.getByRole("button", { name: "Iniciar tarefa 2" }));
   await user.click(
     screen.getByRole("button", {
       name: "Ver vaga: Estágio em Desenvolvimento Web",
     }),
   );
   await user.click(screen.getByRole("button", { name: "Fechar detalhes" }));
-  await user.click(screen.getByRole("button", { name: "Iniciar tarefa 3" }));
   await user.click(
     screen.getByRole("button", {
       name: "Ver vaga: Estágio em Desenvolvimento Web",
@@ -104,14 +101,12 @@ it("permite iniciar a candidatura pelos detalhes sem fechar a vaga", async () =>
   const user = userEvent.setup();
   render(<App />);
   await begin(user);
-  await user.click(screen.getByRole("button", { name: "Iniciar tarefa 1" }));
   await user.selectOptions(
     screen.getByLabelText("Área do estágio"),
     "Tecnologia",
   );
   await user.selectOptions(screen.getByLabelText("Turno"), "Manhã");
   await user.click(screen.getByRole("button", { name: "Buscar vagas" }));
-  await user.click(screen.getByRole("button", { name: "Iniciar tarefa 2" }));
   await user.click(
     screen.getByRole("button", {
       name: "Ver vaga: Estágio em Desenvolvimento Web",
@@ -119,7 +114,7 @@ it("permite iniciar a candidatura pelos detalhes sem fechar a vaga", async () =>
   );
   await user.click(
     screen.getByRole("button", {
-      name: "Iniciar tarefa 3 e simular candidatura",
+      name: "Simular candidatura",
     }),
   );
   await user.click(
@@ -141,4 +136,49 @@ it("permite iniciar a candidatura pelos detalhes sem fechar a vaga", async () =>
       expect.any(Number),
     ),
   );
+});
+it("preserva filtros entre etapas sem exigir botões de início", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await begin(user);
+  expect(
+    screen.queryByRole("button", { name: /Iniciar tarefa/ }),
+  ).not.toBeInTheDocument();
+  await user.selectOptions(
+    screen.getByLabelText("Área do estágio"),
+    "Tecnologia",
+  );
+  await user.selectOptions(screen.getByLabelText("Turno"), "Manhã");
+  await user.click(screen.getByRole("button", { name: "Buscar vagas" }));
+  expect(screen.getByText("Conheça a oportunidade")).toBeInTheDocument();
+  expect(screen.getByLabelText("Área do estágio")).toHaveValue("Tecnologia");
+  expect(screen.getByLabelText("Turno")).toHaveValue("Manhã");
+  await user.click(
+    screen.getByRole("button", {
+      name: "Ver vaga: Estágio em Desenvolvimento Web",
+    }),
+  );
+  expect(
+    screen.getByRole("button", { name: "Simular candidatura" }),
+  ).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Simular candidatura" }));
+  await user.click(
+    screen.getByRole("button", { name: "Confirmar candidatura simulada" }),
+  );
+  expect(screen.getByText("Foi fácil usar o protótipo?")).toBeInTheDocument();
+});
+it("permite ir direto a uma vaga e candidatar-se sem ler o roteiro", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await begin(user);
+  await user.click(
+    screen.getByRole("button", {
+      name: "Ver vaga: Estágio em Marketing Digital",
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Simular candidatura" }));
+  await user.click(
+    screen.getByRole("button", { name: "Confirmar candidatura simulada" }),
+  );
+  expect(screen.getByText("Foi fácil usar o protótipo?")).toBeInTheDocument();
 });

@@ -16,7 +16,7 @@ Abra a URL exibida no terminal, normalmente http://127.0.0.1:5173. Sem variávei
 ## O que está pronto
 
 - Identificação por nome/apelido e curso, com consentimento explícito.
-- Três tarefas guiadas: encontrar vagas de Tecnologia pela Manhã, abrir a vaga de Desenvolvimento Web da Nexo Digital e simular candidatura.
+- Três etapas com avanço automático: buscar vagas, abrir uma oportunidade de interesse e simular candidatura. O roteiro orienta sem bloquear a navegação; os filtros são mantidos ao avançar.
 - Tempo por tarefa, sucesso, desistência, pedidos de ajuda e sequência de ações.
 - Avaliação de facilidade de 1 a 5 e comentário opcional.
 - Salvamento central, indicação de falhas, reenvio e rascunho para atualização da página na mesma aba.
@@ -70,7 +70,7 @@ Nenhuma conta, projeto hospedado ou recurso pago foi criado automaticamente. A c
 
 - Recrute pelo menos 10 universitários do público-alvo, conforme o enunciado. Não use os testes automatizados deste projeto como evidência de usuários reais.
 - Envie o link normal, **sem `?demo=1`**. Explique que o teste avalia a interface, não a pessoa.
-- Peça que cada pessoa use uma única aba e leia as tarefas antes de iniciar. O cronômetro começa no botão “Iniciar tarefa”.
+- Peça que cada pessoa use uma única aba. A primeira etapa começa após a identificação; as seguintes começam automaticamente ao encerrar a anterior. Não é necessário clicar no roteiro ou ler as instruções para navegar.
 - Observe dificuldades sem orientar antecipadamente. Se ajudar, peça que use “Preciso de ajuda”, para o pedido ficar registrado. “Não consegui concluir” encerra a tarefa como desistência.
 - Aguarde “Participação registrada!” ao final. Se houver falha, mantenha a aba aberta e use “Tentar salvar novamente”. A confirmação só aparece após o servidor confirmar a última versão.
 - Em dispositivo compartilhado, use “Encerrar e voltar ao início” entre participantes.
@@ -79,14 +79,14 @@ Nenhuma conta, projeto hospedado ou recurso pago foi criado automaticamente. A c
 
 ## Definição das métricas
 
-| Métrica                 | Cálculo e interpretação                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Participações iniciadas | Quantidade de sessões salvas; identificação autodeclarada, não prova pessoas únicas.                                                       |
-| Avaliações enviadas     | Sessões com as três tarefas encerradas e avaliação final salva. Não significa sucesso em todas as tarefas.                                 |
-| Sucesso por tarefa      | Tarefas concluídas ÷ tarefas iniciadas. Inclui desistências e tarefas ainda ativas no denominador.                                         |
-| Tempo médio por tarefa  | Média do tempo decorrido das tarefas encerradas, tanto concluídas quanto desistidas. Inclui pausas, atualizações da página e troca de aba. |
-| Pedidos de ajuda        | Total de acionamentos do botão durante cada tarefa.                                                                                        |
-| Facilidade percebida    | Média das notas 1–5 entre as avaliações finais enviadas.                                                                                   |
+| Métrica                 | Cálculo e interpretação                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Participações iniciadas | Quantidade de sessões salvas; identificação autodeclarada, não prova pessoas únicas.                                                                    |
+| Avaliações enviadas     | Sessões com as três tarefas encerradas e avaliação final salva. Não significa sucesso em todas as tarefas.                                              |
+| Sucesso por tarefa      | Tarefas concluídas ÷ tarefas iniciadas. Inclui desistências e tarefas ainda ativas no denominador; exclui etapas não utilizadas ao navegar diretamente. |
+| Tempo médio por tarefa  | Média do tempo decorrido das tarefas encerradas, tanto concluídas quanto desistidas. Inclui pausas, atualizações da página e troca de aba.              |
+| Pedidos de ajuda        | Total de acionamentos do botão durante cada tarefa.                                                                                                     |
+| Facilidade percebida    | Média das notas 1–5 entre as avaliações finais enviadas.                                                                                                |
 
 O objetivo é medir usabilidade, não empregabilidade. Métricas vazias são mostradas como “—”. Como a coleta ocorre no navegador, os tempos e a identidade não são prova antifraude; combine os registros com observações reais. O histórico guarda até 500 eventos por sessão.
 
@@ -108,3 +108,7 @@ npm run build
 A suíte cobre a jornada React, filtros, tempos, desistência, ajuda, CSV, falha de rede, persistência e concorrência. As políticas SQL são executadas em PostgreSQL local via PGlite, incluindo isolamento entre usuários, acesso da equipe, rejeição de dados malformados e controle de revisão. Isso não substitui o teste final no Supabase real e no domínio publicado.
 
 Referências oficiais: [Vite](https://vite.dev/guide/), [Vite na Vercel](https://vercel.com/docs/frameworks/frontend/vite), [autenticação anônima do Supabase](https://supabase.com/docs/guides/auth/auth-anonymous) e [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+## Navegação livre e métricas
+
+Os filtros são opcionais. Uma busca com critérios e resultados encerra a primeira etapa; abrir qualquer vaga encerra a segunda; confirmar a candidatura à vaga aberta encerra a terceira e libera a avaliação. A pessoa pode abrir uma vaga diretamente: nesse caso a busca fica como não utilizada (`skipped`, evento `reason: not_used`), sem inventar sucesso. O tempo da abertura direta pode ser zero, pois o avanço ocorre no mesmo evento. Tempos começam na identificação e nas transições automáticas e incluem leitura/pausas. A taxa de conclusão da busca passa a indicar uso bem-sucedido desse recurso. Navegação direta fica em uma contagem separada de etapas não utilizadas, excluída do denominador de tentativas.

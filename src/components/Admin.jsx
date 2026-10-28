@@ -10,7 +10,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { backend, configured } from "../lib/backend";
-import { summarize, toCsv } from "../lib/study";
+import { summarize, toCsv, taskNotUsed } from "../lib/study";
 const statusLabel = {
   completed: "Concluído",
   in_progress: "Em andamento",
@@ -187,7 +187,8 @@ export default function Admin() {
             <h2>Conclusão das tarefas</h2>
             <p className="muted">
               Sucessos divididos pelas tentativas iniciadas, incluindo
-              desistências e tarefas em andamento.
+              desistências e tarefas em andamento. Etapas não utilizadas são
+              contabilizadas separadamente.
             </p>
           </div>
         </div>
@@ -198,8 +199,8 @@ export default function Admin() {
                 0{i + 1} · {t.title}
               </strong>
               <span>
-                {t.completed} de {t.attempts} tentativas · {t.helpCount} pedidos
-                de ajuda ·{" "}
+                {t.completed} de {t.attempts} tentativas · {t.notUsedCount} não
+                utilizadas · {t.helpCount} pedidos de ajuda ·{" "}
                 {t.averageSeconds == null
                   ? "sem tempo registrado"
                   : `${t.averageSeconds.toFixed(0)}s em média nas tarefas encerradas`}
@@ -273,7 +274,10 @@ export default function Admin() {
                     <td>
                       {r.tasks.map((t, i) => (
                         <small key={t.id}>
-                          {i + 1}: {statusLabel[t.status]}
+                          {i + 1}:{" "}
+                          {taskNotUsed(r, i)
+                            ? "Não utilizada"
+                            : statusLabel[t.status]}
                           {t.duration_ms != null
                             ? ` · ${(t.duration_ms / 1000).toFixed(0)}s`
                             : ""}

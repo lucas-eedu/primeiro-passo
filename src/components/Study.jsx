@@ -10,7 +10,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import Modal from "./Modal";
-import { TASKS, currentTask } from "../lib/study";
+import { TASKS, currentTask, taskNotUsed } from "../lib/study";
 import { configured } from "../lib/backend";
 export function Identification({ onBegin, onClose }) {
   const [error, setError] = useState("");
@@ -130,7 +130,7 @@ function Timer({ startedAt }) {
     </span>
   );
 }
-export function TaskPanel({ study, onStart, onHelp, onSkip }) {
+export function TaskPanel({ study, onHelp, onSkip }) {
   const [hint, setHint] = useState(false);
   const i = currentTask(study);
   const task = study.tasks[i];
@@ -158,7 +158,9 @@ export function TaskPanel({ study, onStart, onHelp, onSkip }) {
             <p>
               {["Buscar", "Conhecer", "Candidatar"][n]}
               {study.tasks[n].status === "skipped" && (
-                <small>Não concluída</small>
+                <small>
+                  {taskNotUsed(study, n) ? "Não utilizada" : "Não concluída"}
+                </small>
               )}
             </p>
           </div>
@@ -172,39 +174,28 @@ export function TaskPanel({ study, onStart, onHelp, onSkip }) {
         </div>
         {task.status === "active" && <Timer startedAt={task.started_at} />}
       </div>
-      {task.status === "pending" ? (
-        <div className="task-actions">
-          <span className="muted">
-            Leia a tarefa e comece quando estiver pronto.
-          </span>
-          <button className="button" onClick={onStart}>
-            Iniciar tarefa {i + 1}
-            <ArrowRight size={17} />
+
+      <div className="task-actions">
+        <span className="active-label">
+          <span />
+          Avanço automático
+        </span>
+        <div className="button-row">
+          <button
+            className="text-button"
+            onClick={() => {
+              onHelp();
+              setHint(true);
+            }}
+          >
+            <CircleHelp size={16} />
+            Preciso de ajuda
+          </button>
+          <button className="text-button muted" onClick={onSkip}>
+            Não consegui concluir
           </button>
         </div>
-      ) : (
-        <div className="task-actions">
-          <span className="active-label">
-            <span />
-            Tarefa em andamento
-          </span>
-          <div className="button-row">
-            <button
-              className="text-button"
-              onClick={() => {
-                onHelp();
-                setHint(true);
-              }}
-            >
-              <CircleHelp size={16} />
-              Preciso de ajuda
-            </button>
-            <button className="text-button muted" onClick={onSkip}>
-              Não consegui concluir
-            </button>
-          </div>
-        </div>
-      )}
+      </div>
       {hint && (
         <p role="status" className="hint">
           {TASKS[i].hint} <small>Seu pedido de ajuda foi registrado.</small>

@@ -37,23 +37,20 @@ describe("tarefas e evidências", () => {
       filterJobs(jobs, { area: "Saúde", shift: "Manhã", search: "" }),
     ).toEqual([]);
   });
-  it("não conclui uma tarefa sem iniciá-la nem com ação incorreta", () => {
-    let s = recordAction(
-      study(),
-      "filter",
-      { area: "Tecnologia", shift: "Manhã" },
-      2000,
-    );
-    expect(s.tasks[0].status).toBe("pending");
-    s = startTask(s, 3000);
-    s = recordAction(s, "filter", { area: "Tecnologia", shift: "Tarde" }, 4000);
+  it("avança automaticamente apenas quando a busca encontra resultados", () => {
+    let s = study();
+    expect(s.tasks[0].status).toBe("active");
+    s = recordAction(s, "filter", { area: "Saúde", shift: "Manhã" }, 4000);
     expect(s.tasks[0].status).toBe("active");
     s = recordAction(s, "filter", { area: "Tecnologia", shift: "Manhã" }, 6000);
     expect(s.tasks[0]).toMatchObject({
       status: "completed",
-      duration_ms: 3000,
+      duration_ms: 5000,
     });
-    expect(s.tasks[1].status).toBe("pending");
+    expect(s.tasks[1]).toMatchObject({
+      status: "active",
+      started_at: new Date(6000).toISOString(),
+    });
   });
   it("registra ajuda e desistência sem contá-la como sucesso", () => {
     let s = startTask(study(), 2000);
@@ -62,7 +59,7 @@ describe("tarefas e evidências", () => {
     expect(s.tasks[0]).toMatchObject({
       help_count: 1,
       status: "skipped",
-      duration_ms: 5000,
+      duration_ms: 6000,
     });
     expect(s.events.map((e) => e.type)).toContain("help");
     expect(summarize([s]).tasks[0].successRate).toBe(0);
@@ -78,7 +75,7 @@ describe("tarefas e evidências", () => {
     expect(() => finishStudy(s, { ease: 0 }, 15000)).toThrow();
     s = finishStudy(s, { ease: 4, comment: "Gostei" }, 15000);
     expect(s.status).toBe("completed");
-    expect(s.tasks.map((t) => t.duration_ms)).toEqual([3000, 2000, 4000]);
+    expect(s.tasks.map((t) => t.duration_ms)).toEqual([4000, 3000, 6000]);
     expect(summarize([s])).toMatchObject({
       total: 1,
       finished: 1,
@@ -87,7 +84,7 @@ describe("tarefas e evidências", () => {
   });
   it("mantém métricas vazias sem inventar zero como avaliação", () => {
     expect(summarize([])).toMatchObject({ total: 0, averageEase: null });
-    expect(summarize([study()]).tasks[0].successRate).toBeNull();
+    expect(summarize([study()]).tasks[1].successRate).toBeNull();
   });
   it("exporta desistentes e neutraliza fórmulas e aspas no CSV", () => {
     const s = study();
@@ -107,4 +104,60 @@ it("não conta busca vazia como sucesso mesmo com área e turno corretos", () =>
     3000,
   );
   expect(s.tasks[0].status).toBe("active");
+});
+
+it("permite navegar e candidatar-se a qualquer vaga sem usar os filtros", () => {
+  let s = recordAction(study(), "view", { jobId: "marketing" }, 3000);
+  expect(s.tasks.map((t) => t.status)).toEqual([
+    "skipped",
+    "completed",
+    "active",
+  ]);
+  expect(s.events).toContainEqual(
+    expect.objectContaining({
+      type: "skipped",
+      payload: { reason: "not_used" },
+    }),
+  );
+  s = recordAction(s, "apply", { jobId: "marketing" }, 6000);
+  expect(s.tasks.map((t) => t.status)).toEqual([
+    "skipped",
+    "completed",
+    "completed",
+  ]);
+  expect(finishStudy(s, { ease: 5 }, 7000).status).toBe("completed");
+});
+it("aceita busca textual e ignora candidaturas sem vaga aberta", () => {
+  let s = recordAction(
+    study(),
+    "filter",
+    { search: "marketing", area: "", shift: "" },
+    2000,
+  );
+  expect(s.tasks[0].status).toBe("completed");
+  s = recordAction(s, "apply", { jobId: "marketing" }, 3000);
+  expect(s.tasks[2].status).toBe("pending");
+});
+it("separa busca não utilizada de tentativa sem sucesso nas métricas", () => {
+  const direct = recordAction(study(), "view", { jobId: "marketing" }, 3000);
+  expect(summarize([direct]).tasks[0]).toMatchObject({
+    attempts: 0,
+    notUsedCount: 1,
+    successRate: null,
+  });
+  const skipped = finishTask(study(), "skipped", 3000);
+  expect(summarize([skipped]).tasks[0]).toMatchObject({
+    attempts: 1,
+    notUsedCount: 0,
+    successRate: 0,
+  });
+});
+it("contabiliza a tentativa de busca sem resultados antes da navegação direta", () => {
+  let s = recordAction(study(), "filter", { search: "xyzsemvaga" }, 2000);
+  s = recordAction(s, "view", { jobId: "web" }, 3000);
+  expect(summarize([s]).tasks[0]).toMatchObject({
+    attempts: 1,
+    notUsedCount: 0,
+    successRate: 0,
+  });
 });
